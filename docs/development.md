@@ -21,6 +21,29 @@ VCoreDB is built incrementally to reduce risk:
 - Keep changes backward-compatible whenever possible.
 - Never modify production schema manually.
 
+## Local migration flow
+
+1. Apply migrations in lexical order:
+   - `migrations/0001_phase1_foundation.up.sql`
+   - `migrations/0002_phase2_authentication_users.up.sql`
+2. Validate rollback path with matching down migrations when needed.
+
+## Auth schema validation
+
+Run SQL validation scenarios after migrations:
+- `tests/phase2_authentication.sql`
+
+This script verifies key data-integrity, token/session lifecycle, and RLS behavior in a rollback transaction.
+
+## Cleanup operations
+
+Phase 2 adds `auth.purge_expired_auth_artifacts(interval)`.
+
+Recommended pattern:
+- invoke from a trusted worker/cron
+- use a retention window for revoked sessions
+- avoid direct ad hoc deletes on auth lifecycle tables
+
 ## Quality and safety
 
 - Prefer small, reviewable diffs.

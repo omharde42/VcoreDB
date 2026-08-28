@@ -8,79 +8,102 @@ Most projects repeatedly rebuild users, auth, organizations, API credentials, an
 
 ## Current status
 
-This repository currently implements **Phase 1: Database Foundation + Schema**.
+This repository now implements:
+- **Phase 1: Database Foundation + Schema**
+- **Phase 2: Authentication + Users**
 
-Implemented in Phase 1:
-- Ordered SQL migrations
-- Core/future schema boundaries (`core`, `auth`, `iam`, `audit`, `analytics`, `app`)
-- UUID support for externally exposed identifiers
-- Timestamp/update tracking trigger
-- Foundational core tables for migration and system configuration
-- Soft-deletion-aware uniqueness patterns
+Implemented in Phase 2:
+- User/account model with extensible account states
+- Separated user profile model
+- Provider-based authentication identity model
+- Password credential storage and reset-token lifecycle tables
+- Email verification token lifecycle tables
+- Session management foundation with revocation/expiration fields
+- Authentication event audit table
+- Row-Level Security (RLS) policies for user-owned data
+- Cleanup function for expired auth artifacts
 
 Planned next phases:
-1. Authentication + users
-2. Organizations/projects
-3. Roles + permissions
-4. API keys + developer access
-5. Audit logging
-6. API/service layer
-7. Monitoring/usage
-8. Testing + CI/CD
-9. Documentation + production hardening
+1. Organizations/projects
+2. Roles + permissions
+3. API keys + developer access
+4. Audit logging expansion
+5. API/service layer
+6. Monitoring/usage
+7. Testing + CI/CD expansion
+8. Documentation + production hardening
 
 ## Architecture
 
 High-level schema separation:
 - `core`: shared transactional platform entities
-- `auth`: authentication (future phase)
+- `auth`: users, credentials, sessions, identity providers
 - `iam`: roles, permissions, authorization (future phase)
-- `audit`: append-heavy audit/event data (future phase)
+- `audit`: security/audit event data
 - `analytics`: operational and usage metrics (future phase)
 - `app`: application-specific data (outside core platform model)
 
-See `/docs/architecture.md` and `/docs/database-schema.md`.
+See `/docs/architecture.md`, `/docs/database-schema.md`, `/docs/authentication.md`, and `/docs/security.md`.
 
-## Features (Phase 1)
+## Features (Phases 1-2)
 
 - PostgreSQL migration foundation
 - Strict relational constraints (PK, FK, unique, check, NOT NULL)
-- `created_at`, `updated_at`, `deleted_at` patterns
-- Secure defaults (`gen_random_uuid()` via `pgcrypto`)
-- Indexes aligned to expected lookup/filter patterns
+- `created_at`, `updated_at`, and lifecycle tracking
+- UUID support for externally exposed identifiers (`public_id`)
+- Password-secret/token-secret hashing storage model (no plaintext secrets)
+- RLS foundations for private auth/user data
 
 ## Technology stack
 
 - PostgreSQL 14+
 - SQL migrations (plain SQL, review-friendly)
 
-## Database structure (Phase 1)
+## Database structure
 
-Tables added:
+Tables added in Phase 1:
 - `core.migration_history`
 - `core.environments`
 - `core.system_settings`
 
+Tables added in Phase 2:
+- `auth.account_statuses`
+- `auth.users`
+- `auth.user_profiles`
+- `auth.identities`
+- `auth.password_credentials`
+- `auth.email_verification_tokens`
+- `auth.password_reset_tokens`
+- `auth.sessions`
+- `audit.auth_events`
+
 ## Authentication model
 
-Planned in Phase 2. Includes users, profiles, sessions, provider links, account states, and verification status.
+Authentication identity is modular:
 
-## Authorization model
+`auth.users` (VCore identity) ← 1:N → `auth.identities` (provider identities)
 
-Planned in Phase 4. Includes extensible roles and permissions through `iam` schema.
+Password and token secrets are isolated from profile data:
+- `auth.password_credentials`
+- `auth.email_verification_tokens`
+- `auth.password_reset_tokens`
+
+Session state is tracked in:
+- `auth.sessions`
 
 ## API architecture
 
-Planned in Phase 7. Target layering:
+No runtime API/service implementation exists yet. Phase 2 delivers the secure database/auth foundation required for a later API layer.
+
+Target module boundaries remain:
 `/core`, `/database`, `/models`, `/schemas`, `/services`, `/repositories`, `/api`, `/auth`, `/middleware`, `/utils`, `/migrations`, `/tests`.
 
 ## Security model
 
-- No plaintext secrets in repository
-- Secret-like settings can be flagged (`is_secret`) for stricter handling at service layer
-- Relational constraints protect integrity
-- Soft deletion preserves history
-- Future phases will add RLS/policy guidance where applicable
+- No plaintext credentials/tokens in schema design
+- RLS enforced on user-owned auth tables
+- Service-role separation via session settings and policies
+- Account state, verification, and revocation-aware lifecycle fields
 
 See `/docs/security.md`.
 
@@ -90,6 +113,7 @@ See `/docs/security.md`.
 2. Copy `.env.example` to `.env` and update values.
 3. Apply migrations in order:
    - `migrations/0001_phase1_foundation.up.sql`
+   - `migrations/0002_phase2_authentication_users.up.sql`
 
 ## Environment variables
 
@@ -112,7 +136,7 @@ See `/docs/development.md`.
 
 ## Testing
 
-Planned in Phase 9. Initial validation in Phase 1 is migration-level/syntax-level.
+Phase 2 includes SQL-level validation scenarios in `tests/phase2_authentication.sql`.
 
 ## Contribution guidelines
 
@@ -121,7 +145,7 @@ See `CONTRIBUTING.md` (to be added in a later phase).
 ## Roadmap
 
 - [x] Phase 1: Database foundation + schema
-- [ ] Phase 2: Authentication + users
+- [x] Phase 2: Authentication + users
 - [ ] Phase 3: Organizations/projects
 - [ ] Phase 4: Roles + permissions
 - [ ] Phase 5: API keys + developer access

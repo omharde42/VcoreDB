@@ -1,4 +1,4 @@
-# VCoreDB Architecture (Phase 1)
+# VCoreDB Architecture (Phases 1-2)
 
 ## Design goals
 
@@ -11,9 +11,9 @@
 ## Layered schema strategy
 
 - `core`: shared transactional entities and foundational utilities
-- `auth`: authentication domain (future)
+- `auth`: user identity, credentials, sessions, auth token lifecycles
 - `iam`: roles/permissions/authorization (future)
-- `audit`: write-optimized event/audit data (future)
+- `audit`: write-heavy security/audit data
 - `analytics`: monitoring/usage aggregates (future)
 - `app`: application-specific tables outside platform core
 
@@ -21,7 +21,7 @@
 
 - Keeps identity/security concerns centralized
 - Prevents app-specific schema pollution in core platform model
-- Enables independent scaling and retention strategies for audit/analytics workloads
+- Enables independent scaling and retention strategies for auth/audit workloads
 
 ## Implemented in Phase 1
 
@@ -30,11 +30,23 @@
 - Environment table (`core.environments`)
 - System settings table (`core.system_settings`)
 
+## Implemented in Phase 2
+
+- Extensible account statuses (`auth.account_statuses`)
+- Canonical users table (`auth.users`)
+- Separate user profile table (`auth.user_profiles`)
+- Provider identity model (`auth.identities`)
+- Password credential isolation (`auth.password_credentials`)
+- Verification/reset lifecycle token tables
+- Session lifecycle model (`auth.sessions`)
+- Authentication event audit table (`audit.auth_events`)
+- RLS helpers and policies for user-owned auth data
+- Cleanup function for expired auth artifacts
+
 ## Deferred to next phases
 
-- User/account/authentication data model
 - Organization/project model
-- Role-permission mapping and authorization enforcement
+- Role-permission mapping and authorization enforcement (`iam`)
 - API key lifecycle and credential policy
-- High-volume audit/event ingestion design
-- Service/API layer implementation
+- Runtime API/service implementation
+- Expanded observability and CI coverage
