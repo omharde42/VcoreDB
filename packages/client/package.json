@@ -1,0 +1,19 @@
+{
+  "name": "@vcoredb/client",
+  "version": "1.0.0",
+  "description": "Official TypeScript/JavaScript Client SDK for VCoreDB",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.0.0"
+  }
+}

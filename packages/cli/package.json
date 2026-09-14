@@ -1,0 +1,19 @@
+{
+  "name": "vcoredb-cli",
+  "version": "1.0.0",
+  "description": "VCoreDB Command Line Interface (vcore)",
+  "bin": {
+    "vcore": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vcoredb/client": "file:../client"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

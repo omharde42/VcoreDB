@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vcoredb-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: vcoredb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: vcoredb-app
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/vcoredb
+      PORT: 8080
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
