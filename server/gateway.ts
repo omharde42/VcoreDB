@@ -13,6 +13,8 @@ import { billingRouter, globalStripeWebhookRouter } from './billing';
 import { githubRouter } from './github';
 import { adminRouter } from './admin';
 import { feedbackRouter } from './feedback';
+import { securityRouter } from './security';
+import { migrationsRouter } from './migrations';
 
 export interface AuthenticatedRequest extends Request {
   project?: any;
@@ -163,6 +165,8 @@ export function createGatewayApp(): express.Application {
   app.use('/api/v1/projects/:projectRef', billingRouter);
   app.use('/api/v1/projects/:projectRef', githubRouter);
   app.use('/api/v1/projects/:projectRef', feedbackRouter);
+  app.use('/api/v1/projects/:projectRef', securityRouter);
+  app.use('/api/v1/projects/:projectRef', migrationsRouter);
 
   // Platform & Projects Endpoints
   app.get('/api/v1/projects', (req: Request, res: Response) => {

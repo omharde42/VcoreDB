@@ -6,10 +6,10 @@ export const adminRouter = Router();
 
 // Platform Admin RBAC Authorization Middleware
 export function requirePlatformAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const adminSecret = req.headers['x-vcore-admin-key'] || req.headers['authorization'];
+  const adminSecret = (req.headers['x-vcore-admin-key'] as string) || (req.headers['authorization'] as string);
+  const expectedKey = process.env.VCORE_ADMIN_KEY || 'vcore_admin_secret_key';
 
-  // Allow system admin key or platform admin role
-  if (adminSecret === 'Bearer vcore_admin_secret_token' || req.headers['x-vcore-admin-key'] === 'vcore_admin_secret_key' || req.apiKeyRole === 'service_role') {
+  if (adminSecret === `Bearer ${expectedKey}` || adminSecret === expectedKey) {
     return next();
   }
 

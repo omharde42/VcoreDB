@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest } from './gateway';
 import { dbEngine } from './db';
+import { escapeSqlString } from './utils';
 
 export const feedbackRouter = Router({ mergeParams: true });
 
@@ -17,7 +18,7 @@ feedbackRouter.post('/feedback', (req: AuthenticatedRequest, res: Response) => {
 
     dbEngine.db.public.none(`
       INSERT INTO core.feedback (public_id, user_id, category, title, description, priority, status)
-      VALUES ('${publicId}', ${userId}, '${category}', '${title}', '${description}', '${priority}', 'new')
+      VALUES ('${publicId}', ${userId}, '${escapeSqlString(category)}', '${escapeSqlString(title)}', '${escapeSqlString(description)}', '${escapeSqlString(priority)}', 'new')
     `);
 
     res.status(201).json({ success: true, feedback_id: publicId, message: 'Feedback submitted successfully' });
@@ -53,7 +54,7 @@ feedbackRouter.post('/issues', (req: AuthenticatedRequest, res: Response) => {
 
     dbEngine.db.public.none(`
       INSERT INTO core.issues (public_id, user_id, project_id, page, severity, status, description, error_context)
-      VALUES ('${publicId}', ${userId}, ${projectId}, '${page}', '${severity}', 'open', '${description}', '${JSON.stringify(errorContext)}')
+      VALUES ('${publicId}', ${userId}, ${projectId}, '${escapeSqlString(page)}', '${escapeSqlString(severity)}', 'open', '${escapeSqlString(description)}', '${escapeSqlString(JSON.stringify(errorContext))}')
     `);
 
     res.status(201).json({ success: true, issue_id: publicId, message: 'Issue reported successfully' });

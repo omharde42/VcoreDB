@@ -36,7 +36,7 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
     <div class="bg-gray-900 border border-gray-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden">
       <div class="p-4 border-b border-gray-800 flex items-center space-x-3">
         <span class="text-gray-400">🔍</span>
-        <input id="cmdInput" placeholder="Type a command or search workspace (Cmd+K)..." onkeyup="handleCmdSearch(this.value)" class="w-full bg-transparent text-white text-sm focus:outline-none" />
+        <input id="cmdInput" placeholder="Type a command or search workspace (Cmd+K)..." class="w-full bg-transparent text-white text-sm focus:outline-none" />
         <span class="text-xs bg-gray-800 text-gray-400 px-2.5 py-1 rounded-md">ESC</span>
       </div>
       <div id="cmdResults" class="p-2 space-y-1 text-sm max-h-80 overflow-y-auto">
@@ -81,8 +81,7 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
     const API_BASE = '/api/v1';
     let currentProject = 'proj_default';
     let currentPath = window.location.pathname || '/';
-    let currentUser = null;
-    let wsConnection = null;
+    let activeWorkspaceTab = 'overview';
 
     function navigateRoute(path) {
       window.history.pushState({}, '', path);
@@ -337,7 +336,7 @@ vcore.realtime.subscribe("public:messages", (payload) => {
         body: JSON.stringify({ owner: 'developer-octocat', name, branch: 'main' }),
       });
       const data = await res.json();
-      alert('GitHub Repo imported & analyzed successfully! Language: ' + data.analysis?.language + ' | Files: ' + data.analysis?.total_files);
+      alert('GitHub Repo imported & analyzed successfully! Language: ' + data.analysis?.language + ' | Health Score: ' + data.analysis?.project_health_score);
     }
 
     function renderProjectWorkspace(container) {
@@ -360,8 +359,10 @@ vcore.realtime.subscribe("public:messages", (payload) => {
               </div>
               <nav class="p-3 space-y-1 text-xs font-semibold">
                 <button onclick="loadTab('overview')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">📊 Overview & Health</button>
-                <button onclick="loadTab('database')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🗄️ Database & SQL</button>
-                <button onclick="loadTab('github')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🐙 GitHub & Code Analysis</button>
+                <button onclick="loadTab('database')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🗄️ Database Console</button>
+                <button onclick="loadTab('security')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🛡️ Security Center</button>
+                <button onclick="loadTab('migrations')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🔄 Migration Center</button>
+                <button onclick="loadTab('github')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">🐙 GitHub & Intelligence</button>
                 <button onclick="loadTab('usage')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">📈 Global Usage & Quotas</button>
                 <button onclick="loadTab('pricing')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">💳 Pricing ($1/pack)</button>
               </nav>
@@ -371,10 +372,11 @@ vcore.realtime.subscribe("public:messages", (payload) => {
         </div>
       \`;
 
-      loadTab('overview');
+      loadTab(activeWorkspaceTab);
     }
 
     async function loadTab(tab) {
+      activeWorkspaceTab = tab;
       const workspace = document.getElementById('workspaceContent');
       if (!workspace) return;
 
@@ -384,20 +386,79 @@ vcore.realtime.subscribe("public:messages", (payload) => {
             <h2 class="text-2xl font-bold text-white">Project Operational Status</h2>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <p class="text-xs text-gray-500 uppercase">Database Storage</p>
-                <p class="text-2xl font-bold text-white">125.8 MB / 25 GB</p>
+                <p class="text-xs text-gray-500 uppercase font-semibold">Database Storage</p>
+                <p class="text-2xl font-bold text-white mt-1">125.8 MB / 25 GB</p>
               </div>
               <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <p class="text-xs text-gray-500 uppercase">File Storage</p>
-                <p class="text-2xl font-bold text-white">0 MB / 25 GB</p>
+                <p class="text-xs text-gray-500 uppercase font-semibold">File Storage</p>
+                <p class="text-2xl font-bold text-white mt-1">0 MB / 25 GB</p>
               </div>
               <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <p class="text-xs text-gray-500 uppercase">Bandwidth</p>
-                <p class="text-2xl font-bold text-white">2.85 GB / 25 GB</p>
+                <p class="text-xs text-gray-500 uppercase font-semibold">Bandwidth</p>
+                <p class="text-2xl font-bold text-white mt-1">2.85 GB / 25 GB</p>
               </div>
               <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <p class="text-xs text-gray-500 uppercase">API Requests</p>
-                <p class="text-2xl font-bold text-white">1,420</p>
+                <p class="text-xs text-gray-500 uppercase font-semibold">API Requests</p>
+                <p class="text-2xl font-bold text-white mt-1">1,420</p>
+              </div>
+            </div>
+          </div>
+        \`;
+      } else if (tab === 'database') {
+        const tablesRes = await fetch(\`\${API_BASE}/projects/\${currentProject}/schema/tables\`, { headers: { 'x-vcore-api-key': 'vcore_anon_default_key' } });
+        const tablesData = await tablesRes.json();
+        const tables = tablesData.tables || [];
+
+        workspace.innerHTML = \`
+          <div class="space-y-6">
+            <h2 class="text-2xl font-bold text-white">PostgreSQL Database Console</h2>
+            <div class="bg-gray-900 border border-gray-800 p-6 rounded-xl space-y-4">
+              <h3 class="font-bold text-white">Project Database Tables (\${tables.length})</h3>
+              <div class="grid grid-cols-3 gap-3">
+                \${tables.map(t => \`<div class="p-3 bg-gray-950 border border-gray-800 rounded-lg font-mono text-sm text-indigo-400">📄 \${t}</div>\`).join('')}
+              </div>
+            </div>
+          </div>
+        \`;
+      } else if (tab === 'security') {
+        const secRes = await fetch(\`\${API_BASE}/projects/\${currentProject}/security/audit\`, { headers: { 'x-vcore-api-key': 'vcore_anon_default_key' } });
+        const secData = await secRes.json();
+
+        workspace.innerHTML = \`
+          <div class="space-y-6">
+            <div class="flex justify-between items-center">
+              <h2 class="text-2xl font-bold text-white">Security Center Audit</h2>
+              <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full">Security Score: \${secData.security_score || 95} / 100</span>
+            </div>
+            <div class="space-y-3">
+              \${(secData.findings || []).map(f => \`
+                <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h4 class="font-bold text-white text-sm">\${f.title}</h4>
+                    <p class="text-xs text-gray-400 mt-1">\${f.description}</p>
+                  </div>
+                  \${f.remediable ? \`<button onclick="remediateRls()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-lg font-semibold">Enable RLS Policy</button>\` : ''}
+                </div>
+              \`).join('')}
+            </div>
+          </div>
+        \`;
+      } else if (tab === 'migrations') {
+        const migRes = await fetch(\`\${API_BASE}/projects/\${currentProject}/migrations/status\`, { headers: { 'x-vcore-api-key': 'vcore_anon_default_key' } });
+        const migData = await migRes.json();
+
+        workspace.innerHTML = \`
+          <div class="space-y-6">
+            <h2 class="text-2xl font-bold text-white">Migration Center</h2>
+            <div class="bg-gray-900 border border-gray-800 p-6 rounded-xl space-y-4">
+              <h3 class="font-bold text-white">Applied Database Migrations (\${migData.total_applied})</h3>
+              <div class="space-y-2 font-mono text-xs">
+                \${(migData.migrations || []).map(m => \`
+                  <div class="p-3 bg-gray-950 border border-gray-800 rounded-lg flex items-center justify-between text-indigo-300">
+                    <span>📜 \${m.name}</span>
+                    <span class="text-emerald-400">✓ \${m.status}</span>
+                  </div>
+                \`).join('')}
               </div>
             </div>
           </div>
@@ -409,12 +470,15 @@ vcore.realtime.subscribe("public:messages", (payload) => {
         workspace.innerHTML = \`
           <div class="space-y-6">
             <div class="flex justify-between items-center">
-              <h2 class="text-2xl font-bold text-white">GitHub Integration & Analysis</h2>
+              <h2 class="text-2xl font-bold text-white">GitHub Integration & Intelligence</h2>
               <button onclick="openGitHubImporter()" class="bg-indigo-600 text-white text-xs px-4 py-2 rounded-lg font-semibold">+ Import Repository</button>
             </div>
             \${data.connected ? \`
               <div class="bg-gray-900 border border-gray-800 p-6 rounded-xl space-y-4">
-                <h3 class="font-bold text-white text-lg">🐙 Linked Repo: \${data.repo.owner}/\${data.repo.name}</h3>
+                <div class="flex justify-between items-center">
+                  <h3 class="font-bold text-white text-lg">🐙 Linked Repo: \${data.repo.owner}/\${data.repo.name}</h3>
+                  <span class="px-3 py-1 bg-indigo-500/20 text-indigo-400 text-xs font-bold rounded-full">Health Score: \${data.analysis.project_health_score || 90}/100</span>
+                </div>
                 <div class="grid grid-cols-3 gap-4 font-mono text-sm text-indigo-300">
                   <div>Framework: \${data.analysis.framework}</div>
                   <div>Language: \${data.analysis.language}</div>
@@ -429,11 +493,46 @@ vcore.realtime.subscribe("public:messages", (payload) => {
             \`}
           </div>
         \`;
+      } else if (tab === 'usage') {
+        workspace.innerHTML = \`
+          <div class="space-y-6">
+            <h2 class="text-2xl font-bold text-white">Global Usage & Metering</h2>
+            <div class="grid grid-cols-3 gap-4">
+              <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
+                <div class="text-sm font-bold text-white">Database Usage</div>
+                <div class="text-2xl font-bold text-indigo-400">125.8 MB / 25 GB</div>
+              </div>
+              <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
+                <div class="text-sm font-bold text-white">Storage Usage</div>
+                <div class="text-2xl font-bold text-indigo-400">0 MB / 25 GB</div>
+              </div>
+              <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
+                <div class="text-sm font-bold text-white">Bandwidth</div>
+                <div class="text-2xl font-bold text-emerald-400">2.85 GB / 25 GB</div>
+              </div>
+            </div>
+          </div>
+        \`;
+      } else if (tab === 'pricing') {
+        renderPricingPage(workspace);
       }
     }
 
+    async function remediateRls() {
+      await fetch(\`\${API_BASE}/projects/\${currentProject}/security/remediate\`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-vcore-api-key': 'vcore_anon_default_key',
+        },
+        body: JSON.stringify({ action: 'enable_rls', tableName: 'users' }),
+      });
+      alert('Remediation complete: Enabled RLS policy on table users!');
+      loadTab('security');
+    }
+
     async function renderAdminDashboard(container) {
-      const res = await fetch(\`\${API_BASE}/admin/overview\`, { headers: { 'Authorization': 'Bearer vcore_admin_secret_token' } });
+      const res = await fetch(\`\${API_BASE}/admin/overview\`, { headers: { 'x-vcore-admin-key': 'vcore_admin_secret_key' } });
       const data = await res.json();
       const m = data.metrics || {};
 
