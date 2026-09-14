@@ -91,9 +91,14 @@ export async function runCli(args: string[]): Promise<any> {
 
       if (subcommand === 'tables') {
         try {
-          const res = await fetch(`${apiUrl}/projects/${projectRef}/schema/tables`);
+          const res = await fetch(`${apiUrl}/projects/${projectRef}/schema/tables`, {
+            headers: { 'x-vcore-api-key': 'vcore_anon_default_key' },
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
-          output = { tables: json.tables || [] };
+          const rawTables = json.tables || [];
+          const tableNames = rawTables.map((t: any) => (typeof t === 'string' ? t : t.table_name || t.name));
+          output = { tables: tableNames };
         } catch {
           output = { tables: ['users', 'organizations', 'projects', 'tasks', 'products'] };
         }
@@ -110,7 +115,9 @@ export async function runCli(args: string[]): Promise<any> {
 
       if (subcommand === 'list') {
         try {
-          const res = await fetch(`${apiUrl}/projects/${projectRef}/functions`);
+          const res = await fetch(`${apiUrl}/projects/${projectRef}/functions`, {
+            headers: { 'x-vcore-api-key': 'vcore_anon_default_key' },
+          });
           const json = await res.json();
           output = { functions: json.functions || [] };
         } catch {
@@ -121,7 +128,7 @@ export async function runCli(args: string[]): Promise<any> {
         try {
           const res = await fetch(`${apiUrl}/projects/${projectRef}/functions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-vcore-api-key': 'vcore_anon_default_key' },
             body: JSON.stringify({ name: fnName, slug: fnName, code: 'res.json({ ok: true })' }),
           });
           const json = await res.json();

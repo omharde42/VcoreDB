@@ -122,7 +122,21 @@ export class QueryBuilder<T = any> {
     }
   }
 
-  public async update(record: Partial<T>): Promise<QueryResult<T>> {
+  private action: 'select' | 'update' | 'delete' = 'select';
+  private updatePayload?: Partial<T>;
+
+  public update(record: Partial<T>): this {
+    this.action = 'update';
+    this.updatePayload = record;
+    return this;
+  }
+
+  public delete(): this {
+    this.action = 'delete';
+    return this;
+  }
+
+  public async execute(): Promise<QueryResult<any>> {
     try {
       const url = new URL(`${this.baseUrl}/tables/${this.table}`);
       Object.keys(this.queryParams).forEach(k => url.searchParams.append(k, this.queryParams[k]));
@@ -135,46 +149,28 @@ export class QueryBuilder<T = any> {
         headers['Authorization'] = `Bearer ${this.sessionToken}`;
       }
 
-      const res = await fetch(url.toString(), {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(record),
-      });
+      let method = 'GET';
+      let body: string | undefined = undefined;
+
+      if (this.action === 'update') {
+        method = 'PATCH';
+        body = JSON.stringify(this.updatePayload || {});
+      } else if (this.action === 'delete') {
+        method = 'DELETE';
+      }
+
+      const res = await fetch(url.toString(), { method, headers, body });
       const json = await res.json();
 
       if (!res.ok) {
-        return { data: null, error: new VCoreError(json.error?.message || 'Update failed', json.error?.code, res.status) };
+        return { data: null, error: new VCoreError(json.error?.message || 'Query execution failed', json.error?.code, res.status) };
       }
 
-      return { data: json.updated as T, error: null };
-    } catch (err: any) {
-      return { data: null, error: new VCoreError(err.message) };
-    }
-  }
-
-  public async delete(): Promise<QueryResult<boolean>> {
-    try {
-      const url = new URL(`${this.baseUrl}/tables/${this.table}`);
-      Object.keys(this.queryParams).forEach(k => url.searchParams.append(k, this.queryParams[k]));
-
-      const headers: Record<string, string> = {
-        'x-vcore-api-key': this.apiKey,
-      };
-      if (this.sessionToken) {
-        headers['Authorization'] = `Bearer ${this.sessionToken}`;
+      if (this.action === 'delete') {
+        return { data: true, error: null };
       }
 
-      const res = await fetch(url.toString(), {
-        method: 'DELETE',
-        headers,
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        return { data: null, error: new VCoreError(json.error?.message || 'Delete failed', json.error?.code, res.status) };
-      }
-
-      return { data: true, error: null };
+      return { data: (json.data || json.updated) as T[], error: null };
     } catch (err: any) {
       return { data: null, error: new VCoreError(err.message) };
     }

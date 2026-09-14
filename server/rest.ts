@@ -22,7 +22,7 @@ restRouter.get('/schema/schemas', (req: AuthenticatedRequest, res: Response) => 
 restRouter.get('/schema/tables', (req: AuthenticatedRequest, res: Response) => {
   try {
     const rawTables = dbEngine.db.public.many(
-      `SELECT table_name, table_schema FROM information_schema.tables WHERE table_schema IN ('public', 'app')`
+      `SELECT table_name, table_schema FROM information_schema.tables WHERE table_schema IN ('public', 'app', 'auth', 'core', 'storage', 'functions', 'webhooks')`
     );
 
     const tables = rawTables.map((t: any) => {
@@ -31,7 +31,7 @@ restRouter.get('/schema/tables', (req: AuthenticatedRequest, res: Response) => {
       );
       let count = 0;
       try {
-        const rows = dbEngine.db.public.many(`SELECT COUNT(*) as count FROM public.${t.table_name}`);
+        const rows = dbEngine.db.public.many(`SELECT COUNT(*) as count FROM ${t.table_schema}.${t.table_name}`);
         count = parseInt(rows[0]?.count || '0', 10);
       } catch {}
 
@@ -311,10 +311,27 @@ restRouter.patch('/tables/:tableName', (req: AuthenticatedRequest, res: Response
     const body = req.body;
     const query = req.query;
 
+    const whereClauses: string[] = [];
+    Object.keys(query).forEach(key => {
+      if (['select', 'order', 'limit', 'offset'].includes(key)) return;
+      const valStr = String(query[key]);
+      const [op, ...valParts] = valStr.split('.');
+      const val = escapeSqlString(valParts.join('.'));
+      const colName = sanitizeIdentifier(key);
+      if (op === 'eq') whereClauses.push(`${colName} = '${val}'`);
+      else whereClauses.push(`${colName} = '${escapeSqlString(valStr)}'`);
+    });
+
+    if (whereClauses.length === 0 && !query.id) {
+      return res.status(400).json({ error: { code: 'MISSING_FILTER', message: 'UPDATE requires at least one filter query param (e.g. ?id=eq.123)' } });
+    }
+
     const setClauses = Object.keys(body).map(k => `${sanitizeIdentifier(k)} = '${escapeSqlString(String(body[k]))}'`);
     let sql = `UPDATE public.${tableName} SET ${setClauses.join(', ')}`;
 
-    if (query.id) {
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`;
+    } else if (query.id) {
       sql += ` WHERE id = ${parseInt(String(query.id), 10)}`;
     }
 
@@ -330,8 +347,25 @@ restRouter.delete('/tables/:tableName', (req: AuthenticatedRequest, res: Respons
     const tableName = sanitizeIdentifier(req.params.tableName);
     const query = req.query;
 
+    const whereClauses: string[] = [];
+    Object.keys(query).forEach(key => {
+      if (['select', 'order', 'limit', 'offset'].includes(key)) return;
+      const valStr = String(query[key]);
+      const [op, ...valParts] = valStr.split('.');
+      const val = escapeSqlString(valParts.join('.'));
+      const colName = sanitizeIdentifier(key);
+      if (op === 'eq') whereClauses.push(`${colName} = '${val}'`);
+      else whereClauses.push(`${colName} = '${escapeSqlString(valStr)}'`);
+    });
+
+    if (whereClauses.length === 0 && !query.id) {
+      return res.status(400).json({ error: { code: 'MISSING_FILTER', message: 'DELETE requires at least one filter query param (e.g. ?id=eq.123)' } });
+    }
+
     let sql = `DELETE FROM public.${tableName}`;
-    if (query.id) {
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`;
+    } else if (query.id) {
       sql += ` WHERE id = ${parseInt(String(query.id), 10)}`;
     }
 

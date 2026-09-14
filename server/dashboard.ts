@@ -27,10 +27,10 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
         <span class="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">ESC</span>
       </div>
       <div id="cmdResults" class="p-2 space-y-1 text-sm max-h-80 overflow-y-auto">
+        <div onclick="setTab('pricing')" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>💳 Open Pricing & Billing</span><span class="text-xs text-gray-500">Tab</span></div>
+        <div onclick="triggerAdd25GB()" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>🚀 Add 25 GB Capacity Pack ($1)</span><span class="text-xs text-gray-500">Action</span></div>
         <div onclick="setTab('database')" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>🗄️ Open Database Console</span><span class="text-xs text-gray-500">Tab</span></div>
-        <div onclick="setTab('database'); setTimeout(() => runSqlQuery(), 200);" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>⚡ Open SQL Editor</span><span class="text-xs text-gray-500">Action</span></div>
         <div onclick="setTab('storage')" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>📦 Open Storage Buckets (25 GB Free)</span><span class="text-xs text-gray-500">Tab</span></div>
-        <div onclick="setTab('functions')" class="p-2 hover:bg-gray-800 rounded cursor-pointer flex items-center justify-between text-gray-300"><span>🚀 Open Edge Functions</span><span class="text-xs text-gray-500">Tab</span></div>
       </div>
     </div>
   </div>
@@ -75,8 +75,11 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
                 <button onclick="setTab('overview')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-md \${activeTab === 'overview' ? 'bg-indigo-600/20 text-indigo-400 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}">
                   <span>📊</span> <span>Project Overview</span>
                 </button>
+                <button onclick="setTab('pricing')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-md \${activeTab === 'pricing' ? 'bg-indigo-600/20 text-indigo-400 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}">
+                  <span>💳</span> <span>Pricing & Billing ($1/pack)</span>
+                </button>
                 <button onclick="setTab('usage')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-md \${activeTab === 'usage' ? 'bg-indigo-600/20 text-indigo-400 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}">
-                  <span>📈</span> <span>Usage & 25GB Quotas</span>
+                  <span>📈</span> <span>Usage & Quotas</span>
                 </button>
                 <button onclick="setTab('database')" class="w-full flex items-center space-x-3 px-3 py-2 rounded-md \${activeTab === 'database' ? 'bg-indigo-600/20 text-indigo-400 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}">
                   <span>🗄️</span> <span>Database Console</span>
@@ -156,10 +159,104 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
       }
     });
 
+    async function triggerAdd25GB() {
+      try {
+        const res = await fetch(\`\${API_BASE}/projects/\${currentProject}/billing/checkout\`, {
+          method: 'POST',
+          headers: { 'x-vcore-api-key': 'vcore_anon_default_key' },
+        });
+        const data = await res.json();
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          alert('Checkout creation failed: ' + JSON.stringify(data));
+        }
+      } catch (err) {
+        alert('Checkout error: ' + err.message);
+      }
+    }
+
     async function loadTabContent() {
       const content = document.getElementById('content');
 
-      if (activeTab === 'overview') {
+      if (activeTab === 'pricing') {
+        const hRes = await fetch(\`\${API_BASE}/projects/\${currentProject}/billing/history\`, { headers: { 'x-vcore-api-key': 'vcore_anon_default_key' } });
+        const hData = await hRes.json();
+        const payments = hData.payments || [];
+
+        content.innerHTML = \`
+          <div>
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h2 class="text-2xl font-bold text-white mb-1">Pricing & Capacity Expansions</h2>
+                <p class="text-gray-400">Generous $0 Free Tier + $1 One-Time Capacity Expansions.</p>
+              </div>
+              <button onclick="triggerAdd25GB()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-600/30 flex items-center space-x-2">
+                <span>🚀 Add 25 GB Capacity Pack — $1</span>
+              </button>
+            </div>
+
+            <!-- Pricing Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+              <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col justify-between">
+                <div>
+                  <div class="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full mb-4">Included Plan</div>
+                  <h3 class="text-2xl font-bold text-white">VCoreDB Free Tier</h3>
+                  <div class="text-4xl font-extrabold text-white my-4">$0 <span class="text-sm font-normal text-gray-500">/ forever</span></div>
+                  <ul class="space-y-3 text-sm text-gray-300">
+                    <li class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span><strong>25 GB</strong> Database Storage</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span><strong>25 GB</strong> Object File Storage</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span><strong>25 GB</strong> Bandwidth / Egress</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span>Auth, REST API, Realtime, Storage, Functions, Webhooks, CLI & SDK</span></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="bg-gradient-to-br from-indigo-950/40 via-gray-900 to-gray-900 border border-indigo-500/40 rounded-2xl p-6 flex flex-col justify-between">
+                <div>
+                  <div class="inline-block px-3 py-1 bg-indigo-500/20 text-indigo-400 text-xs font-semibold rounded-full mb-4">Capacity Pack</div>
+                  <h3 class="text-2xl font-bold text-white">+25 GB Expansion Pack</h3>
+                  <div class="text-4xl font-extrabold text-white my-4">$1 <span class="text-sm font-normal text-gray-500">/ one-time</span></div>
+                  <ul class="space-y-3 text-sm text-gray-300 mb-6">
+                    <li class="flex items-center space-x-2"><span class="text-indigo-400">⚡</span><span><strong>+25 GB</strong> Database Capacity</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-indigo-400">⚡</span><span><strong>+25 GB</strong> Storage Capacity</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-indigo-400">⚡</span><span><strong>+25 GB</strong> Bandwidth / Egress</span></li>
+                    <li class="flex items-center space-x-2"><span class="text-indigo-400">⚡</span><span>Permanent expansion, no recurring monthly subscription</span></li>
+                  </ul>
+                </div>
+                <button onclick="triggerAdd25GB()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg shadow-lg">Buy +25 GB Pack for $1 USD</button>
+              </div>
+            </div>
+
+            <!-- Billing Transactions History -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h3 class="font-semibold text-white mb-4">Payment History & Quota Expansions</h3>
+              <table class="w-full text-left text-sm text-gray-300">
+                <thead class="bg-gray-950 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th class="p-3">Payment ID</th>
+                    <th class="p-3">Product</th>
+                    <th class="p-3">Amount</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                  \${payments.map(p => \`
+                    <tr>
+                      <td class="p-3 font-mono text-xs text-indigo-400">\${p.stripe_payment_id}</td>
+                      <td class="p-3 font-medium text-white">+25 GB Capacity Expansion Pack</td>
+                      <td class="p-3 text-emerald-400 font-bold">$1.00 USD</td>
+                      <td class="p-3"><span class="px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400">\${p.status}</span></td>
+                      <td class="p-3 text-xs text-gray-500">\${new Date(p.created_at).toLocaleString()}</td>
+                    </tr>
+                  \`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        \`;
+      } else if (activeTab === 'overview') {
         const metricsRes = await fetch(\`\${API_BASE}/projects/\${currentProject}/metrics\`, { headers: { 'x-vcore-api-key': 'vcore_anon_default_key' } });
         const metricsData = await metricsRes.json();
         const m = metricsData.metrics || {};
@@ -206,24 +303,29 @@ const HTML_DASHBOARD = `<!DOCTYPE html>
 
         content.innerHTML = \`
           <div>
-            <h2 class="text-2xl font-bold text-white mb-2">Usage & 25 GB Free Plan Quotas</h2>
-            <p class="text-gray-400 mb-6">Real-time resource tracking and plan allocation.</p>
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h2 class="text-2xl font-bold text-white mb-1">Usage & Plan Quotas</h2>
+                <p class="text-gray-400">Real-time resource usage tracking and capacity limits.</p>
+              </div>
+              <button onclick="triggerAdd25GB()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2 rounded">Add 25 GB — $1</button>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
-                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">Database Storage</span><span class="text-xs text-emerald-400">25 GB Included</span></div>
+                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">Database Storage</span><span class="text-xs text-emerald-400">25 GB Base</span></div>
                 <div class="w-full bg-gray-950 h-3 rounded-full overflow-hidden border border-gray-800"><div class="bg-indigo-600 h-full w-[1%]"></div></div>
                 <p class="text-xs text-gray-400">125.8 MB / 25 GB Used (0.5%)</p>
               </div>
 
               <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
-                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">File Object Storage</span><span class="text-xs text-emerald-400">25 GB Included</span></div>
+                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">File Object Storage</span><span class="text-xs text-emerald-400">25 GB Base</span></div>
                 <div class="w-full bg-gray-950 h-3 rounded-full overflow-hidden border border-gray-800"><div class="bg-indigo-600 h-full w-[1%]"></div></div>
                 <p class="text-xs text-gray-400">0 MB / 25 GB Used (0.0%)</p>
               </div>
 
               <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl space-y-2">
-                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">Monthly Bandwidth</span><span class="text-xs text-emerald-400">25 GB Included</span></div>
+                <div class="flex justify-between items-center"><span class="text-sm font-semibold text-white">Monthly Bandwidth</span><span class="text-xs text-emerald-400">25 GB Base</span></div>
                 <div class="w-full bg-gray-950 h-3 rounded-full overflow-hidden border border-gray-800"><div class="bg-emerald-500 h-full w-[11%]"></div></div>
                 <p class="text-xs text-gray-400">2.85 GB / 25 GB Used (11.4%)</p>
               </div>
@@ -589,6 +691,6 @@ const { data, error } = await vcore
 </body>
 </html>`;
 
-dashboardRouter.get('/', (req: Request, res: Response) => {
+dashboardRouter.use((req: Request, res: Response) => {
   res.send(HTML_DASHBOARD);
 });

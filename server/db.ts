@@ -21,7 +21,7 @@ export class DatabaseEngine {
   private init() {
     this.db = newDb();
 
-    ['core', 'auth', 'iam', 'storage', 'functions', 'webhooks', 'audit', 'analytics', 'app'].forEach(s => {
+    ['core', 'auth', 'iam', 'storage', 'functions', 'webhooks', 'audit', 'analytics', 'app', 'billing'].forEach(s => {
       this.db.createSchema(s);
     });
 
@@ -43,17 +43,18 @@ export class DatabaseEngine {
     const mig1 = fs.readFileSync(path.join(process.cwd(), 'migrations/0001_phase1_foundation.up.sql'), 'utf8');
     const mig2 = fs.readFileSync(path.join(process.cwd(), 'migrations/0002_platform_auth_iam_core.up.sql'), 'utf8');
     const mig3 = fs.readFileSync(path.join(process.cwd(), 'migrations/0003_storage_functions_webhooks.up.sql'), 'utf8');
+    const mig4 = fs.readFileSync(path.join(process.cwd(), 'migrations/0004_stripe_billing.up.sql'), 'utf8');
 
     this.execSql(mig1);
     this.execSql(mig2);
     this.execSql(mig3);
+    this.execSql(mig4);
 
     this.seedDefaultData();
   }
 
   public execSql(sql: string) {
     try {
-      // Clean migration statements
       let clean = sql
         .replace(/CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql;/gi, '')
         .split('\n')
@@ -66,7 +67,6 @@ export class DatabaseEngine {
         .filter(s => s.length > 0 && !s.startsWith('BEGIN') && !s.startsWith('COMMIT') && !s.startsWith('COMMENT ON') && !s.startsWith('CREATE TRIGGER') && !s.toUpperCase().startsWith('CREATE EXTENSION'));
 
       for (const stmt of stmts) {
-        // Fix trailing commas before closing paren if CHECK constraint line was removed
         const sanitizedStmt = stmt.replace(/,\s*\)/g, ')');
         this.db.public.none(sanitizedStmt);
       }
@@ -94,6 +94,12 @@ export class DatabaseEngine {
         VALUES
         ('33333333-3333-3333-3333-333333333333', 1, 'Default Anon Key', 'vcore_anon_', 'vcore_anon_default_key', 'anon'),
         ('44444444-4444-4444-4444-444444444444', 1, 'Default Service Role Key', 'vcore_service_', 'vcore_service_default_key', 'service_role')
+        ON CONFLICT DO NOTHING;
+      `);
+
+      this.db.public.none(`
+        INSERT INTO billing.project_quotas (public_id, project_id, expansion_packs)
+        VALUES ('55555555-5555-5555-5555-555555555555', 1, 0)
         ON CONFLICT DO NOTHING;
       `);
     } catch (err) {

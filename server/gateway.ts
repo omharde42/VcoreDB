@@ -9,6 +9,7 @@ import { functionsRouter } from './functions';
 import { webhooksRouter } from './webhooks';
 import { observabilityRouter } from './observability';
 import { dashboardRouter } from './dashboard';
+import { billingRouter, globalStripeWebhookRouter } from './billing';
 
 export interface AuthenticatedRequest extends Request {
   project?: any;
@@ -19,7 +20,12 @@ export interface AuthenticatedRequest extends Request {
 export function createGatewayApp(): express.Application {
   const app = express();
   app.use(cors());
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({
+    limit: '50mb',
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }));
 
   // Global Health Endpoints
   app.get('/health', (req: Request, res: Response) => {
@@ -33,6 +39,9 @@ export function createGatewayApp(): express.Application {
   app.get('/version', (req: Request, res: Response) => {
     res.json({ name: 'VCoreDB', version: '1.0.0' });
   });
+
+  // Mount Global Stripe Webhook Router (raw route unauthenticated)
+  app.use(globalStripeWebhookRouter);
 
   // Gateway Auth & Security Enforcement Middleware
   app.use('/api/v1/projects/:projectRef', (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -65,7 +74,7 @@ export function createGatewayApp(): express.Application {
         }
       }
 
-      // Public Auth endpoints (signup, login) & Health do not require key authorization
+      // Public Auth endpoints (signup, login) do not require key authorization
       if (req.path.endsWith('/auth/signup') || req.path.endsWith('/auth/login')) {
         return next();
       }
@@ -145,6 +154,7 @@ export function createGatewayApp(): express.Application {
   app.use('/api/v1/projects/:projectRef', functionsRouter);
   app.use('/api/v1/projects/:projectRef', webhooksRouter);
   app.use('/api/v1/projects/:projectRef', observabilityRouter);
+  app.use('/api/v1/projects/:projectRef', billingRouter);
 
   // Platform & Projects Endpoints
   app.get('/api/v1/projects', (req: Request, res: Response) => {
