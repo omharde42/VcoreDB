@@ -70,31 +70,6 @@ export class QueryBuilder<T = any> {
     return this;
   }
 
-  public async execute(): Promise<QueryResult<T[]>> {
-    try {
-      const url = new URL(`${this.baseUrl}/tables/${this.table}`);
-      Object.keys(this.queryParams).forEach(k => url.searchParams.append(k, this.queryParams[k]));
-
-      const headers: Record<string, string> = {
-        'x-vcore-api-key': this.apiKey,
-      };
-      if (this.sessionToken) {
-        headers['Authorization'] = `Bearer ${this.sessionToken}`;
-      }
-
-      const res = await fetch(url.toString(), { headers });
-      const json = await res.json();
-
-      if (!res.ok) {
-        return { data: null, error: new VCoreError(json.error?.message || 'Query failed', json.error?.code, res.status) };
-      }
-
-      return { data: json.data as T[], error: null };
-    } catch (err: any) {
-      return { data: null, error: new VCoreError(err.message) };
-    }
-  }
-
   public async insert(record: Partial<T>): Promise<QueryResult<T>> {
     try {
       const headers: Record<string, string> = {

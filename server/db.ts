@@ -44,11 +44,13 @@ export class DatabaseEngine {
     const mig2 = fs.readFileSync(path.join(process.cwd(), 'migrations/0002_platform_auth_iam_core.up.sql'), 'utf8');
     const mig3 = fs.readFileSync(path.join(process.cwd(), 'migrations/0003_storage_functions_webhooks.up.sql'), 'utf8');
     const mig4 = fs.readFileSync(path.join(process.cwd(), 'migrations/0004_stripe_billing.up.sql'), 'utf8');
+    const mig5 = fs.readFileSync(path.join(process.cwd(), 'migrations/0005_github_admin_feedback.up.sql'), 'utf8');
 
     this.execSql(mig1);
     this.execSql(mig2);
     this.execSql(mig3);
     this.execSql(mig4);
+    this.execSql(mig5);
 
     this.seedDefaultData();
   }

@@ -10,6 +10,9 @@ import { webhooksRouter } from './webhooks';
 import { observabilityRouter } from './observability';
 import { dashboardRouter } from './dashboard';
 import { billingRouter, globalStripeWebhookRouter } from './billing';
+import { githubRouter } from './github';
+import { adminRouter } from './admin';
+import { feedbackRouter } from './feedback';
 
 export interface AuthenticatedRequest extends Request {
   project?: any;
@@ -148,6 +151,9 @@ export function createGatewayApp(): express.Application {
     }
   });
 
+  // Mount Platform Admin Router
+  app.use('/api/v1/admin', adminRouter);
+
   // Mount API Routers
   app.use('/api/v1/projects/:projectRef', restRouter);
   app.use('/api/v1/projects/:projectRef', storageRouter);
@@ -155,6 +161,8 @@ export function createGatewayApp(): express.Application {
   app.use('/api/v1/projects/:projectRef', webhooksRouter);
   app.use('/api/v1/projects/:projectRef', observabilityRouter);
   app.use('/api/v1/projects/:projectRef', billingRouter);
+  app.use('/api/v1/projects/:projectRef', githubRouter);
+  app.use('/api/v1/projects/:projectRef', feedbackRouter);
 
   // Platform & Projects Endpoints
   app.get('/api/v1/projects', (req: Request, res: Response) => {
