@@ -120,7 +120,7 @@ See `CONTRIBUTING.md` (to be added in a later phase).
 
 ## Roadmap
 
-- [x] Phase 1: Database foundation + schema
+- [ ] Phase 1: Database foundation + schema
 - [ ] Phase 2: Authentication + users
 - [ ] Phase 3: Organizations/projects
 - [ ] Phase 4: Roles + permissions
