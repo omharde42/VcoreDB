@@ -243,6 +243,20 @@ export function createGatewayApp(): express.Application {
     res.json({ project: req.project });
   });
 
+  app.delete('/api/v1/projects/:projectRef', (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required to delete a project' } });
+      }
+      const u = AuthService.verifyToken(authHeader.substring(7));
+      const result = ProjectService.deleteProject(req.params.projectRef, u.id);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: { code: 'DELETE_PROJECT_FAILED', message: err.message } });
+    }
+  });
+
   // Mount Dashboard Router
   app.use('/', dashboardRouter);
 
