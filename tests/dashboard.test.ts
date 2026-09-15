@@ -8,8 +8,8 @@ describe('Dashboard UI & Web Console', () => {
   it('should render the VCoreDB dashboard HTML', async () => {
     const res = await request(app).get('/');
     expect(res.status).toBe(200);
-    expect(res.text).toContain('VCoreDB — Enterprise BaaS & Developer Platform');
-    expect(res.text).toContain('Your Complete Backend');
-    expect(res.text).toContain('@vcoredb/client');
+    expect(res.text).toContain('VCoreDB');
+    expect(res.text).toContain('Your Intelligent Backend, Built Around Your Code');
+    expect(res.text).toContain('GitHub Repository');
   });
 });
