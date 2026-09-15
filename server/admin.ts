@@ -4,6 +4,31 @@ import { dbEngine } from './db';
 
 export const adminRouter = Router();
 
+// Admin Login Endpoint (separate from normal user auth)
+adminRouter.post('/login', (req: AuthenticatedRequest, res: Response) => {
+  const { username, password, adminKey } = req.body;
+  const expectedKey = process.env.VCORE_ADMIN_KEY || 'vcore_admin_secret_key';
+
+  if ((adminKey === expectedKey || password === expectedKey) && (username === 'admin' || username === 'admin@vcoredb.com' || !username)) {
+    return res.json({
+      success: true,
+      admin_token: expectedKey,
+      admin: {
+        id: 'admin_root',
+        email: 'admin@vcoredb.com',
+        role: 'platform_administrator',
+      },
+    });
+  }
+
+  return res.status(401).json({
+    error: {
+      code: 'INVALID_ADMIN_CREDENTIALS',
+      message: 'Invalid administrator credentials or admin key',
+    },
+  });
+});
+
 // Platform Admin RBAC Authorization Middleware
 export function requirePlatformAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const adminSecret = (req.headers['x-vcore-admin-key'] as string) || (req.headers['authorization'] as string);

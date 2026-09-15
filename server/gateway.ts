@@ -48,6 +48,45 @@ export function createGatewayApp(): express.Application {
   // Mount Global Stripe Webhook Router (raw route unauthenticated)
   app.use(globalStripeWebhookRouter);
 
+  // Platform Auth Endpoints (for platform platform users/signup/login/me)
+  app.post('/api/v1/auth/signup', async (req: Request, res: Response) => {
+    try {
+      const { email, password, metadata } = req.body;
+      const result = await AuthService.platformSignup(email, password, metadata);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: { code: 'AUTH_ERROR', message: err.message } });
+    }
+  });
+
+  app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      const result = await AuthService.platformLogin(email, password);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: { code: 'AUTH_ERROR', message: err.message } });
+    }
+  });
+
+  app.get('/api/v1/auth/me', async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'No bearer token provided' } });
+      }
+      const token = authHeader.substring(7);
+      const user = await AuthService.getSessionUser(token);
+      res.json({ user });
+    } catch (err: any) {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: err.message } });
+    }
+  });
+
+  app.post('/api/v1/auth/logout', (req: Request, res: Response) => {
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+
   // Gateway Auth & Security Enforcement Middleware
   app.use('/api/v1/projects/:projectRef', (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -170,14 +209,30 @@ export function createGatewayApp(): express.Application {
 
   // Platform & Projects Endpoints
   app.get('/api/v1/projects', (req: Request, res: Response) => {
-    const projects = ProjectService.listProjects();
+    let userId: number | undefined;
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const u = AuthService.verifyToken(authHeader.substring(7));
+        userId = u.id;
+      } catch {}
+    }
+    const projects = ProjectService.listProjects(userId);
     res.json({ projects });
   });
 
   app.post('/api/v1/projects', (req: Request, res: Response) => {
     try {
+      let userId = 1;
+      const authHeader = req.headers['authorization'];
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const u = AuthService.verifyToken(authHeader.substring(7));
+          userId = u.id;
+        } catch {}
+      }
       const { name, region } = req.body;
-      const project = ProjectService.createProject(name, region);
+      const project = ProjectService.createProject(name, region, userId);
       res.status(201).json({ project });
     } catch (err: any) {
       res.status(400).json({ error: { code: 'CREATE_FAILED', message: err.message } });

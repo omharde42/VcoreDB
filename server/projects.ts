@@ -2,7 +2,13 @@ import { dbEngine } from './db';
 import { escapeSqlString } from './utils';
 
 export class ProjectService {
-  public static listProjects() {
+  public static listProjects(ownerUserId?: number) {
+    if (ownerUserId) {
+      return dbEngine.db.public.many(
+        `SELECT p.public_id as id, p.ref, p.name, p.db_name, p.status, p.region, p.created_at
+         FROM core.projects p WHERE p.organization_id = ${ownerUserId} AND p.deleted_at IS NULL`
+      );
+    }
     return dbEngine.db.public.many(
       `SELECT p.public_id as id, p.ref, p.name, p.db_name, p.status, p.region, p.created_at
        FROM core.projects p WHERE p.deleted_at IS NULL`
@@ -29,7 +35,7 @@ export class ProjectService {
     };
   }
 
-  public static createProject(name: string, region: string = 'us-east-1') {
+  public static createProject(name: string, region: string = 'us-east-1', ownerUserId: number = 1) {
     const ref = `proj_${Math.random().toString(36).substring(2, 9)}`;
     const dbName = `vcoredb_${ref}`;
     const publicId = crypto.randomUUID();
@@ -38,7 +44,14 @@ export class ProjectService {
 
     dbEngine.db.public.none(`
       INSERT INTO core.projects (public_id, organization_id, ref, name, db_name, status, region)
-      VALUES ('${publicId}', 1, '${ref}', '${escapedName}', '${dbName}', 'ready', '${escapedRegion}')
+      VALUES ('${publicId}', ${ownerUserId}, '${ref}', '${escapedName}', '${dbName}', 'ready', '${escapedRegion}')
+    `);
+
+    // Seed quota entry
+    dbEngine.db.public.none(`
+      INSERT INTO billing.project_quotas (public_id, project_id, expansion_packs)
+      VALUES ('${crypto.randomUUID()}', (SELECT id FROM core.projects WHERE ref = '${ref}'), 0)
+      ON CONFLICT DO NOTHING;
     `);
 
     const newProj = dbEngine.db.public.one(
