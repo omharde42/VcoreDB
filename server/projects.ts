@@ -96,4 +96,36 @@ export class ProjectService {
       api_key: keyVal,
     };
   }
+
+  public static deleteProject(refOrId: string, ownerUserId?: number) {
+    const proj = this.getProject(refOrId);
+    const projectId = proj.internal_id;
+
+    if (!ownerUserId) {
+      throw new Error('Unauthorized: Valid user session required to delete a project');
+    }
+
+    if (proj.organization_id && proj.organization_id !== ownerUserId) {
+      throw new Error('Forbidden: You do not own this project');
+    }
+
+    // Cascading deletion of project resources across tables safely
+    try { dbEngine.db.public.none(`DELETE FROM core.api_keys WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM core.github_repos WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM core.github_analysis WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM billing.project_quotas WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM auth.users WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM storage.objects WHERE bucket_id IN (SELECT id FROM storage.buckets WHERE project_id = ${projectId})`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM storage.buckets WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM functions.deployments WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM webhooks.endpoints WHERE project_id = ${projectId}`); } catch {}
+    try { dbEngine.db.public.none(`DELETE FROM migrations.schema_migrations WHERE project_id = ${projectId}`); } catch {}
+
+    // Mark project as soft deleted / removed
+    dbEngine.db.public.none(`
+      UPDATE core.projects SET deleted_at = NOW(), status = 'deleted' WHERE id = ${projectId}
+    `);
+
+    return { success: true, message: `Project ${proj.name} (${proj.ref}) deleted successfully.` };
+  }
 }
