@@ -230,56 +230,64 @@ githubRouter.get('/github/repos', (req: AuthenticatedRequest, res: Response) => 
   res.json({ repos });
 });
 
-// Analyze GitHub Repository by URL (Public or OAuth)
-githubRouter.post('/github/analyze', async (req: AuthenticatedRequest, res: Response) => {
+// Helper to parse GitHub URL
+export function parseGitHubUrl(urlStr: string): { owner: string; repo: string } | null {
+  if (!urlStr) return null;
   try {
-    const { url, githubToken } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'GitHub repository URL is required' } });
+    let clean = urlStr.trim().replace(/\.git$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
     }
-
-    const { owner, name, branch } = parseGitHubUrl(url);
-    const analysis = await analyzeRepositoryCodebase(owner, name, branch, githubToken);
-
-    res.json({
-      success: true,
-      url,
-      owner,
-      repo: name,
-      branch,
-      analysis,
-    });
-  } catch (err: any) {
-    res.status(400).json({ error: { code: 'ANALYSIS_FAILED', message: err.message } });
+    const url = new URL(clean);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2) {
+      return { owner: parts[0], repo: parts[1] };
+    }
+    return null;
+  } catch {
+    return null;
   }
-});
+}
 
 // Import GitHub Repository as a VCoreDB Project
 githubRouter.post('/github/import', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    let { owner, name, branch = 'main', projectName, url } = req.body;
+    const { repo_url, owner: rawOwner, name: rawName, branch = 'main', projectName } = req.body;
 
-    if (url && (!owner || !name)) {
-      const parsed = parseGitHubUrl(url);
-      owner = parsed.owner;
-      name = parsed.name;
-      branch = parsed.branch || branch;
+    let owner = rawOwner;
+    let name = rawName;
+
+    if (repo_url) {
+      const parsed = parseGitHubUrl(repo_url);
+      if (parsed) {
+        owner = parsed.owner;
+        name = parsed.repo;
+      }
     }
 
-    if (!owner || !name) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Owner and repository name or URL required' } });
+    if (!owner && !name) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'GitHub URL or Owner and Repository name required' } });
     }
 
-    const projName = projectName || `${name}-project`;
-    const project = ProjectService.createProject(projName, 'us-east-1');
+    if (!owner) owner = 'developer-octocat';
+
+    let project = req.project;
+    if (!project) {
+      const projName = projectName || `${name}-project`;
+      project = ProjectService.createProject(projName, 'us-east-1');
+    }
 
     const safeOwner = escapeSqlString(owner);
     const safeName = escapeSqlString(name);
     const safeBranch = escapeSqlString(branch);
+    const safeUrl = escapeSqlString(`https://github.com/${owner}/${name}`);
+
+    dbEngine.db.public.none(`DELETE FROM core.github_repos WHERE project_id = ${project.internal_id}`);
+    dbEngine.db.public.none(`DELETE FROM core.github_analysis WHERE project_id = ${project.internal_id}`);
 
     dbEngine.db.public.none(`
       INSERT INTO core.github_repos (public_id, project_id, owner, name, branch, github_url)
-      VALUES ('${crypto.randomUUID()}', ${project.internal_id}, '${safeOwner}', '${safeName}', '${safeBranch}', 'https://github.com/${safeOwner}/${safeName}')
+      VALUES ('${crypto.randomUUID()}', ${project.internal_id}, '${safeOwner}', '${safeName}', '${safeBranch}', '${safeUrl}')
     `);
 
     const analysis = await analyzeRepositoryCodebase(owner, name, branch);
@@ -298,6 +306,13 @@ githubRouter.post('/github/import', async (req: AuthenticatedRequest, res: Respo
         '${JSON.stringify(analysis.metrics)}'
       )
     `);
+
+    if (req.user?.id) {
+      dbEngine.db.public.none(`
+        INSERT INTO core.user_notifications (public_id, user_id, project_id, type, title, message)
+        VALUES ('${crypto.randomUUID()}', ${req.user.id}, ${project.internal_id}, 'github', 'Repository Connected', 'Successfully linked repository ${owner}/${name} (${branch}).')
+      `);
+    }
 
     res.status(201).json({
       success: true,
