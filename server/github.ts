@@ -7,7 +7,7 @@ import { escapeSqlString } from './utils';
 export const githubRouter = Router({ mergeParams: true });
 
 // Helper to parse GitHub URL formats into owner, repo, branch
-export function parseGitHubUrl(rawUrl: string): { owner: string; name: string; branch: string; full_name: string } {
+export function parseGitHubUrl(rawUrl: string): { owner: string; name: string; repo: string; branch: string; full_name: string } {
   let cleaned = rawUrl.trim();
   cleaned = cleaned.replace(/\.git$/, '');
   cleaned = cleaned.replace(/\/$/, '');
@@ -17,13 +17,13 @@ export function parseGitHubUrl(rawUrl: string): { owner: string; name: string; b
     const owner = match[1];
     const name = match[2];
     const branch = match[3] || 'main';
-    return { owner, name, branch, full_name: `${owner}/${name}` };
+    return { owner, name, repo: name, branch, full_name: `${owner}/${name}` };
   }
 
   // Fallback if user enters 'owner/repo' directly
   const parts = cleaned.split('/');
   if (parts.length === 2 && !cleaned.includes('http')) {
-    return { owner: parts[0], name: parts[1], branch: 'main', full_name: `${parts[0]}/${parts[1]}` };
+    return { owner: parts[0], name: parts[1], repo: parts[1], branch: 'main', full_name: `${parts[0]}/${parts[1]}` };
   }
 
   throw new Error(`Invalid GitHub repository URL: "${rawUrl}". Expected format: https://github.com/owner/repo`);
@@ -39,7 +39,10 @@ export async function fetchGitHubRepoDetails(owner: string, name: string, token?
   }
 
   try {
-    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers, signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!repoRes.ok) {
       if (repoRes.status === 404) {
         throw new Error(`Repository ${owner}/${name} not found or is private.`);
@@ -230,24 +233,6 @@ githubRouter.get('/github/repos', (req: AuthenticatedRequest, res: Response) => 
   res.json({ repos });
 });
 
-// Helper to parse GitHub URL
-export function parseGitHubUrl(urlStr: string): { owner: string; repo: string } | null {
-  if (!urlStr) return null;
-  try {
-    let clean = urlStr.trim().replace(/\.git$/, '');
-    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = 'https://' + clean;
-    }
-    const url = new URL(clean);
-    const parts = url.pathname.split('/').filter(Boolean);
-    if (parts.length >= 2) {
-      return { owner: parts[0], repo: parts[1] };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 // Import GitHub Repository as a VCoreDB Project
 githubRouter.post('/github/import', async (req: AuthenticatedRequest, res: Response) => {

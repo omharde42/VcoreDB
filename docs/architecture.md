@@ -1,52 +1,31 @@
-# VCoreDB Architecture (Phases 1-2)
+# VCoreDB Platform Architecture
 
-## Design goals
+## Platform Overview
 
-- Reusable backend/database core across multiple applications
-- Strict data integrity through relational constraints
-- Clear separation between core platform data and app-specific data
-- Security-first defaults and auditability-ready foundations
-- Incremental, migration-driven evolution
+VCoreDB is designed as a PostgreSQL-first Backend-as-a-Service (BaaS) platform providing multi-tenant project isolation, API key routing, REST database APIs, real-time WebSocket notifications, serverless function invocation, object storage, and integration with GitHub and Stripe.
 
-## Layered schema strategy
+## Layered Schema Architecture
 
-- `core`: shared transactional entities and foundational utilities
-- `auth`: user identity, credentials, sessions, auth token lifecycles
-- `iam`: roles/permissions/authorization (future)
-- `audit`: write-heavy security/audit data
-- `analytics`: monitoring/usage aggregates (future)
-- `app`: application-specific tables outside platform core
+VCoreDB uses PostgreSQL schema separation to cleanly isolate platform metadata from user application data:
 
-## Why this separation
+1. `core`: Projects, organizations, API key credentials, environment configs, GitHub repository links, and migration histories.
+2. `auth`: Users, account statuses, provider identities (Google/GitHub OAuth), password credentials, verification tokens, reset tokens, and active sessions.
+3. `iam`: Roles, permissions, organization memberships, and role assignments.
+4. `audit`: Security event logs, auth events, and platform action auditing.
+5. `analytics`: API usage counters, database bandwidth, storage metrics, and project quota consumption.
+6. `app`: End-user database application tables.
+7. `storage`: Buckets, object metadata, access policies, and storage quotas.
+8. `functions`: Serverless functions, deployment versions, execution logs, and secrets.
+9. `webhooks`: Webhook endpoints, subscribed event triggers, delivery logs, and retry attempts.
+10. `billing`: Subscription plans, Stripe customer IDs, usage quotas, and expansion packs.
 
-- Keeps identity/security concerns centralized
-- Prevents app-specific schema pollution in core platform model
-- Enables independent scaling and retention strategies for auth/audit workloads
+## Core Backend Services
 
-## Implemented in Phase 1
-
-- Shared timestamp trigger (`core.set_updated_at`)
-- Migration bookkeeping table (`core.migration_history`)
-- Environment table (`core.environments`)
-- System settings table (`core.system_settings`)
-
-## Implemented in Phase 2
-
-- Extensible account statuses (`auth.account_statuses`)
-- Canonical users table (`auth.users`)
-- Separate user profile table (`auth.user_profiles`)
-- Provider identity model (`auth.identities`)
-- Password credential isolation (`auth.password_credentials`)
-- Verification/reset lifecycle token tables
-- Session lifecycle model (`auth.sessions`)
-- Authentication event audit table (`audit.auth_events`)
-- RLS helpers and policies for user-owned auth data
-- Cleanup function for expired auth artifacts
-
-## Deferred to next phases
-
-- Organization/project model
-- Role-permission mapping and authorization enforcement (`iam`)
-- API key lifecycle and credential policy
-- Runtime API/service implementation
-- Expanded observability and CI coverage
+- **API Gateway (`server/gateway.ts`):** Handles authentication middleware, project key validation, user session decoding, and API request routing.
+- **Database Engine (`server/db.ts`):** Manages PostgreSQL connections and executes migration scripts in strict sequence.
+- **REST API Generator (`server/rest.ts`):** Converts HTTP requests into parameterized SQL queries with strict tenant isolation.
+- **Realtime Gateway (`server/realtime.ts`):** WebSocket broadcast engine for real-time table mutation notifications.
+- **Storage Engine (`server/storage.ts`):** Manages buckets and file storage on disk with MIME validation and signed URL generation.
+- **Function Runner (`server/functions.ts`):** Serverless function execution engine with environment variable injection and execution timeouts.
+- **GitHub Integration (`server/github.ts`):** Repository import, automated codebase dependency analysis, and health reporting.
+- **Admin & Observability (`server/admin.ts`, `server/observability.ts`):** Metrics monitoring, audit logging, and platform administrator management.

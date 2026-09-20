@@ -1,37 +1,36 @@
 # VCoreDB
 
-VCoreDB is a modular PostgreSQL-first backend foundation designed to be reused across multiple applications.
+VCoreDB is a modular, developer-focused PostgreSQL-first Backend-as-a-Service (BaaS) and developer platform built with Node.js, Express, TypeScript, Vitest, and Docker.
 
-## Why VCoreDB exists
+## Platform Capabilities
 
-Most projects repeatedly rebuild users, auth, organizations, API credentials, and auditing from scratch. VCoreDB centralizes those concerns into a clean, evolvable core schema so app teams can focus on domain logic.
+VCoreDB centralizes core backend concerns so developer teams can focus on application logic:
 
-## Current status
+- **Managed Relational PostgreSQL Engine:** Automated migrations, multi-schema isolation (`core`, `auth`, `iam`, `audit`, `analytics`, `app`, `storage`, `functions`, `webhooks`, `billing`).
+- **Platform & User Authentication:** Full auth suite supporting signup, login, session revocation, OAuth integrations (Google, GitHub), user profiles, and JWT tokens.
+- **Auto-Generated Database REST API:** Full CRUD operations (`GET`, `POST`, `PATCH`, `DELETE`) with dynamic filter operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `is`), pagination, sorting, limit, and schema introspection.
+- **API Key Management:** Scoped public anon keys and privileged service-role keys with hashed storage and usage tracking.
+- **Realtime WebSockets Engine:** Direct subscription layer for PostgreSQL table inserts, updates, and deletes (`/realtime/v1`).
+- **S3-Compatible Object Storage:** Bucket management, file uploads, metadata tracking, and signed URL generation (`/api/v1/projects/:projectRef/storage`).
+- **Edge Functions & Webhooks:** Serverless code execution with timeout controls and event webhooks with retry capabilities.
+- **GitHub Integration:** Repository linking, repository sync, and automated codebase gap/health analysis.
+- **Organization & IAM Model:** Multi-tenant organization boundaries, project isolation, and role-based permissions (Owner, Admin, Developer, Viewer).
+- **Stripe Billing & Quotas:** Tiered billing plans, quota enforcement, and usage tracking.
+- **CLI & Client SDK:** Cross-platform command-line tool (`vcoredb-cli`) and typed TypeScript client library (`@vcoredb/client`).
 
-This repository now implements:
-- **Phase 1: Database Foundation + Schema**
-- **Phase 2: Authentication + Users**
+## Architecture Overview
 
-Implemented in Phase 2:
-- User/account model with extensible account states
-- Separated user profile model
-- Provider-based authentication identity model
-- Password credential storage and reset-token lifecycle tables
-- Email verification token lifecycle tables
-- Session management foundation with revocation/expiration fields
-- Authentication event audit table
-- Row-Level Security (RLS) policies for user-owned data
-- Cleanup function for expired auth artifacts
-
-Planned next phases:
-1. Organizations/projects
-2. Roles + permissions
-3. API keys + developer access
-4. Audit logging expansion
-5. API/service layer
-6. Monitoring/usage
-7. Testing + CI/CD expansion
-8. Documentation + production hardening
+VCoreDB strictly maintains database schema isolation:
+- `core`: Shared transactional entities, projects, organizations, API keys, system settings, and migration history
+- `auth`: Users, account statuses, provider identities, password credentials, verification/reset tokens, and sessions
+- `iam`: Organizations, members, roles, permissions, and organization invites
+- `audit`: Security events and operational audit trails
+- `analytics`: Usage metrics, bandwidth, API calls, and storage counters
+- `app`: User application tables
+- `storage`: Buckets, objects, access policies, and storage usage
+- `functions`: Edge functions, deployments, invocation logs, and environment variables
+- `webhooks`: Webhook endpoints, subscribed events, delivery attempts, and delivery logs
+- `billing`: Customer profiles, subscriptions, usage quotas, and expansion packs
 
 ## Architecture
 
